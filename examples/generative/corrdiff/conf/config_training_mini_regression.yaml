@@ -17,20 +17,18 @@
 hydra:
   job:
     chdir: true
-    name: regression_job
+    name: mini_regression
   run:
     dir: ./outputs/${hydra:job.name}
 
+# Get defaults
 defaults:
-  - config_train_base
 
-## Main options
-outdir: "./output_regression"   
-  # Where to save the results
-arch: ddpmpp-cwb-v0-regression
-  # Network architecture [ddpmpp, ddpmpp-cwb-v2, ncsnpp, adm, ddpmpp-cwb-v0-regression]
-precond: unetregression
-  # Preconditioning & loss function [vp, ve, edm, unetregression, resloss]
-task: regression
-  # Which model to train [regression, diffusion]
+  # Dataset
+  - dataset/hrrrmini
 
+  # Model
+  - model/corrdiff_regression_mini
+
+  # Training
+  - training/corrdiff_regression_mini

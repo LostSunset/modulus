@@ -14,26 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import datetime
+defaults:
+  - corrdiff_diffusion
 
-import cftime
+hr_mean_conditioning: True
 
-
-def convert_datetime_to_cftime(
-    time: datetime.datetime, cls=cftime.DatetimeGregorian
-) -> cftime.DatetimeGregorian:
-    """Convert a Python datetime object to a cftime DatetimeGregorian object."""
-    return cls(time.year, time.month, time.day, time.hour, time.minute, time.second)
-
-
-def time_range(
-    start_time: datetime.datetime,
-    end_time: datetime.datetime,
-    step: datetime.timedelta,
-    inclusive: bool = False,
-):
-    """Like the Python `range` iterator, but with datetimes."""
-    t = start_time
-    while (t <= end_time) if inclusive else (t < end_time):
-        yield t
-        t += step
+model_args:
+  model_channels: 64
+  channel_mult: [1, 2, 2]
+  attn_resolutions: [16]

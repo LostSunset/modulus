@@ -14,4 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# empty
+# Validation dataset options
+# (need to set dataset.train_test_split == true to have an effect)
+train: false
+all_times: false
