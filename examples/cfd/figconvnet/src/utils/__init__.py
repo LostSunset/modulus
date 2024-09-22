@@ -13,26 +13,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ruff: noqa
-from .utils import weight_init
-from .layers import (
-    AttentionOp,
-    Conv2d,
-    FourierEmbedding,
-    GroupNorm,
-    Linear,
-    PositionalEmbedding,
-    UNetBlock,
-)
-from .song_unet import SongUNet, SongUNetPosEmbd
-from .dhariwal_unet import DhariwalUNet
-from .unet import UNet
-from .preconditioning import (
-    EDMPrecond,
-    EDMPrecondSR,
-    VEPrecond,
-    VPPrecond,
-    iDDPMPrecond,
-    VEPrecond_dfsr_cond,
-    VEPrecond_dfsr,
-)
+
+import functools
+
+from modulus.distributed import DistributedManager
+
+
+def rank0(func):
+    """Decorator that makes sure the function is executed only in rank 0 process."""
+
+    @functools.wraps(func)
+    def rank0_only(*args, **kwargs):
+        if DistributedManager().rank == 0:
+            return func(*args, **kwargs)
+
+    return rank0_only

@@ -13,26 +13,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ruff: noqa
-from .utils import weight_init
-from .layers import (
-    AttentionOp,
-    Conv2d,
-    FourierEmbedding,
-    GroupNorm,
-    Linear,
-    PositionalEmbedding,
-    UNetBlock,
-)
-from .song_unet import SongUNet, SongUNetPosEmbd
-from .dhariwal_unet import DhariwalUNet
-from .unet import UNet
-from .preconditioning import (
-    EDMPrecond,
-    EDMPrecondSR,
-    VEPrecond,
-    VPPrecond,
-    iDDPMPrecond,
-    VEPrecond_dfsr_cond,
-    VEPrecond_dfsr,
-)
+
+import numpy as np
+import torch
+
+
+def set_seed(seed: int = 0):
+    """Random seed initialization."""
+
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
