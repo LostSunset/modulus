@@ -6,11 +6,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0a0] - 2024-09-XX
+## [0.9.0a0] - 2024-11-XX
 
 ### Added
 
+- Graph Transformer processor for GraphCast/GenCast.
+- Utility to generate STL from Signed Distance Field.
+- Metrics for CAE and CFD domain such as integrals, drag, and turbulence invariances and
+  spectrum.
+- Added gradient clipping to StaticCapture utilities.
+- Bistride Multiscale MeshGraphNet example.
+- FIGConvUNet model and example.
+- The Transolver model.
+- The XAeroNet model.
+- Incoporated CorrDiff-GEFS-HRRR model into CorrDiff, with lead-time aware SongUNet and
+  cross entropy loss.
+
 ### Changed
+
+- Refactored CorrDiff training recipe for improved usability
+- Fixed timezone calculation in datapipe cosine zenith utility.
+- Refactored EDMPrecondSRV2 preconditioner and fixed the bug related to the metadata
+- Extended the checkpointing utility to store metadata.
+- Corrected missing export of loggin function used by transolver model
 
 ### Deprecated
 
@@ -21,6 +39,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+## [0.8.0] - 2024-09-24
+
+### Added
+
+- Graph Transformer processor for GraphCast/GenCast.
+- Utility to generate STL from Signed Distance Field.
+- Metrics for CAE and CFD domain such as integrals, drag, and turbulence invariances and
+  spectrum.
+- Added gradient clipping to StaticCapture utilities.
+- Bistride Multiscale MeshGraphNet example.
+
+### Changed
+
+- Refactored CorrDiff training recipe for improved usability
+- Fixed timezone calculation in datapipe cosine zenith utility.
 
 ## [0.7.0] - 2024-07-23
 
@@ -63,6 +97,7 @@ Shallow-Water-Equation example.
 - Fixed bug in the partitioning logic for distributing graph structures
 intended for distributed message-passing.
 - Fixed bugs for corrdiff diffusion training of `EDMv1` and `EDMv2`
+- Fixed bug when trying to save DDP model trained through unified recipe
 
 ### Dependencies
 
