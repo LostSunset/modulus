@@ -34,10 +34,10 @@ classifiers = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/NVIDIA/modulus"
-Documentation = "https://docs.nvidia.com/modulus/#core"
-Issues = "https://github.com/NVIDIA/modulus/issues"
-Changelog = "https://github.com/NVIDIA/modulus/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/NVIDIA/physicsnemo"
+Documentation = "https://docs.nvidia.com/physicsnemo/index.html#core"
+Issues = "https://github.com/NVIDIA/physicsnemo/issues"
+Changelog = "https://github.com/NVIDIA/physicsnemo/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 launch = [
@@ -57,6 +57,7 @@ dev = [
     "interrogate==1.5.0",
     "coverage==6.5.0",
     "ruff==0.0.290",
+    "moto[s3]>=5.0.28",
 ]
 
 makani = [
@@ -76,7 +77,7 @@ fignet = [
 ]
 
 storage = [
-    "multi-storage-client>=0.14.0",
+    "multi-storage-client[boto3]>=0.14.0",
 ]
 
 shardtensor = [
