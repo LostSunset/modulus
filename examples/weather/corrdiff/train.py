@@ -14,22 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, time, psutil, hydra, torch
+import os
+import time
+import psutil
+from contextlib import nullcontext
+
+import hydra
 from hydra.utils import to_absolute_path
+from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
+import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
+import nvtx
 import wandb
-from hydra.core.hydra_config import HydraConfig
-from contextlib import nullcontext
 
 from physicsnemo import Module
 from physicsnemo.models.diffusion import UNet, EDMPrecondSuperResolution
 from physicsnemo.distributed import DistributedManager
-
 from physicsnemo.metrics.diffusion import RegressionLoss, ResidualLoss, RegressionLossCE
 from physicsnemo.utils.patching import RandomPatching2D
-
 from physicsnemo.launch.logging.wandb import initialize_wandb
 from physicsnemo.launch.logging import PythonLogger, RankZeroLoggingWrapper
 from physicsnemo.launch.utils import (
@@ -39,7 +43,6 @@ from physicsnemo.launch.utils import (
 )
 
 from datasets.dataset import init_train_valid_datasets_from_config, register_dataset
-
 from helpers.train_helpers import (
     set_patch_shape,
     set_seed,
@@ -48,8 +51,6 @@ from helpers.train_helpers import (
     handle_and_clip_gradients,
     is_time_for_periodic_task,
 )
-import nvtx
-
 
 torch._dynamo.reset()
 # Increase the cache size limit
@@ -260,7 +261,10 @@ def main(cfg: DictConfig) -> None:
             img_in_channels=img_in_channels + model_args["N_grid_channels"],
             **model_args,
         )
-    elif cfg.model.name == "lt_aware_ce_regression":
+    elif (
+        cfg.model.name == "lt_aware_ce_regression"
+        or cfg.model.name == "lt_aware_regression"
+    ):
         model = UNet(
             img_in_channels=img_in_channels
             + model_args["N_grid_channels"]
@@ -294,7 +298,8 @@ def main(cfg: DictConfig) -> None:
 
     # Check if regression model is used with patching
     if (
-        cfg.model.name in ["regression", "lt_aware_ce_regression"]
+        cfg.model.name
+        in ["regression", "lt_aware_regression", "lt_aware_ce_regression"]
         and patching is not None
     ):
         raise ValueError(
@@ -417,7 +422,7 @@ def main(cfg: DictConfig) -> None:
             regression_net=regression_net,
             hr_mean_conditioning=cfg.model.hr_mean_conditioning,
         )
-    elif cfg.model.name == "regression":
+    elif cfg.model.name == "regression" or cfg.model.name == "lt_aware_regression":
         loss_fn = RegressionLoss()
     elif cfg.model.name == "lt_aware_ce_regression":
         loss_fn = RegressionLossCE(prob_channels=prob_channels)
@@ -688,7 +693,7 @@ def main(cfg: DictConfig) -> None:
                                     for patch_num_per_iter in patch_nums_iter:
                                         if patching is not None:
                                             patching.set_patch_num(patch_num_per_iter)
-                                            loss_valid_kwargs.update(
+                                            loss_fn_kwargs.update(
                                                 {"patching": patching}
                                             )
                                         with torch.autocast(
@@ -704,7 +709,6 @@ def main(cfg: DictConfig) -> None:
                                         valid_loss_accum += (
                                             loss_valid
                                             / cfg.training.io.validation_steps
-                                            / len(patch_nums_iter)
                                         )
                                 valid_loss_sum = torch.tensor(
                                     [valid_loss_accum], device=dist.device
