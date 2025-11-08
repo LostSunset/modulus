@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -85,9 +85,9 @@ class VerticesToPointFeatures(nn.Module):
             self.mlp = MLP(3 * embed_dim, out_features, [])
 
     def forward(self, vertices: Float[Tensor, "B N 3"]) -> PointFeatures:
-        assert (
-            vertices.ndim == 3
-        ), f"Expected 3D vertices of shape BxNx3, got {vertices.shape}"
+        assert vertices.ndim == 3, (
+            f"Expected 3D vertices of shape BxNx3, got {vertices.shape}"
+        )
         vert_embed = self.pos_embed(vertices)
         if self.use_mlp:
             vert_embed = self.mlp(vert_embed)
@@ -135,7 +135,7 @@ class FIGConvUNet(BaseModel):
         aabb_min: Tuple[float, float, float] = (0.0, 0.0, 0.0),
         voxel_size: Optional[float] = None,
         resolution_memory_format_pairs: List[
-            Tuple[GridFeaturesMemoryFormat, Tuple[int, int, int]]
+            Tuple[GridFeaturesMemoryFormat | str, Tuple[int, int, int]]
         ] = [
             (GridFeaturesMemoryFormat.b_xc_y_z, (2, 128, 128)),
             (GridFeaturesMemoryFormat.b_yc_x_z, (128, 2, 128)),
@@ -163,7 +163,10 @@ class FIGConvUNet(BaseModel):
         self.point_feature_to_grids = nn.ModuleList()
         self.aabb_length = torch.tensor(aabb_max) - torch.tensor(aabb_min)
         self.min_voxel_edge_length = torch.tensor([np.inf, np.inf, np.inf])
+
         for mem_fmt, res in resolution_memory_format_pairs:
+            if isinstance(mem_fmt, str):
+                mem_fmt = GridFeaturesMemoryFormat[mem_fmt]
             compressed_axis = memory_format_to_axis_index[mem_fmt]
             compressed_spatial_dims.append(res[compressed_axis])
             to_grid = nn.Sequential(
@@ -256,13 +259,13 @@ class FIGConvUNet(BaseModel):
         if pooling_layers is None:
             pooling_layers = [num_levels]
         else:
-            assert isinstance(
-                pooling_layers, list
-            ), f"pooling_layers must be a list, got {type(pooling_layers)}."
+            assert isinstance(pooling_layers, list), (
+                f"pooling_layers must be a list, got {type(pooling_layers)}."
+            )
             for layer in pooling_layers:
-                assert (
-                    layer <= num_levels
-                ), f"pooling_layer {layer} is greater than num_levels {num_levels}."
+                assert layer <= num_levels, (
+                    f"pooling_layer {layer} is greater than num_levels {num_levels}."
+                )
         self.pooling_layers = pooling_layers
         grid_pools = [
             GridFeatureGroupPool(
