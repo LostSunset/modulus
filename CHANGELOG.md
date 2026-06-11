@@ -108,6 +108,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `physicsnemo.mesh`: `Mesh.to(<float dtype>)` and `DomainMesh.to(<float dtype>)`
+  raised `TypeError: cells must have an int-like dtype` because the cast was applied
+  to the integer `cells` tensor. A floating/complex dtype is now applied only to
+  floating tensors; the integer `cells` (and any integer data) are preserved. Device
+  moves are unchanged.
 - `physicsnemo.mesh`: fixed several silent-wrong-result bugs — `slice_cells`
   carried stale point-level and non-local (`gaussian_curvature`) caches onto the
   sliced mesh; the intrinsic LSQ gradient returned all-zeros for codimension >= 2
