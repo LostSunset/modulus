@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: Copyright (c) 2023 - 2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-FileCopyrightText: All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -18,6 +18,8 @@ import os
 import re
 import numpy as np
 import pyvista as pv
+
+from utils import load_global_features, get_global_features_for_run
 
 
 def find_run_folders(base_data_dir):
@@ -55,13 +57,14 @@ def extract_mesh_connectivity_from_polydata(poly: pv.PolyData):
 
 
 def load_vtp_file(vtp_path):
-    """Load positions over time and connectivity from a single VTP file.
+    """Load positions over time, connectivity, and other point data from a single VTP file.
 
     Expects displacement fields in point_data named like:
       - displacement_t0.000, displacement_t0.005, ..., displacement_t0.100
     Returns:
         pos_raw: (timesteps, num_nodes, 3) absolute positions (coords + displacement_t)
         mesh_connectivity: list[list[int]]
+        point_data_dict: dict of other point data arrays (e.g., thickness)
     """
     poly = pv.read(vtp_path)
     if not isinstance(poly, pv.PolyData):
@@ -104,7 +107,38 @@ def load_vtp_file(vtp_path):
 
     pos_raw = np.stack(pos_list, axis=0)
     mesh_connectivity = extract_mesh_connectivity_from_polydata(poly)
-    return pos_raw, mesh_connectivity
+
+    # Extract all other point data fields (not displacement fields)
+    point_data_dict = {}
+    for name in poly.point_data.keys():
+        if not name.startswith("displacement_"):
+            point_data_dict[name] = np.asarray(poly.point_data[name])
+
+    # Extract cell data and convert to point data
+    if poly.cell_data:
+        converted = poly.cell_data_to_point_data(pass_cell_data=True)
+        cell_point_names = [
+            name
+            for name in converted.point_data.keys()
+            if name.startswith("cell_effective_plastic_strain_")
+            or name.startswith("cell_stress_vm_")
+        ]
+        if cell_point_names:
+
+            def natural_key(name):
+                return [
+                    int(s) if s.isdigit() else s.lower()
+                    for s in re.findall(r"\d+|\D+", name)
+                ]
+
+            cell_point_names = sorted(cell_point_names, key=natural_key)
+            for name in cell_point_names:
+                arr = np.asarray(converted.point_data[name])
+                # Drop the 'cell_' prefix to reflect point semantics
+                point_name = name.replace("cell_", "", 1)
+                point_data_dict[point_name] = arr
+
+    return pos_raw, mesh_connectivity, point_data_dict
 
 
 def build_edges_from_mesh_connectivity(mesh_connectivity):
@@ -154,7 +188,13 @@ def collect_mesh_pos(
     return np.stack(mesh_pos_all)
 
 
-def process_vtp_data(data_dir, num_samples=2, write_vtp=False, logger=None):
+def process_vtp_data(
+    data_dir,
+    num_samples=2,
+    write_vtp=False,
+    global_features_filepath: str | None = None,
+    logger=None,
+):
     """
     Preprocesses VTP crash simulation data in a given directory.
     Each .vtp file is treated as one sample. For each sample, computes edges from connectivity,
@@ -166,11 +206,16 @@ def process_vtp_data(data_dir, num_samples=2, write_vtp=False, logger=None):
     vtp_files = find_run_folders(base_data_dir)
     srcs, dsts = [], []
     point_data_all = []
+    global_features_all = []
 
     if not vtp_files:
         if logger:
             logger.error(f"No .vtp files found in: {base_data_dir}")
         exit(1)
+
+    # Load global features
+    if global_features_filepath is not None:
+        all_global_features = load_global_features(global_features_filepath)
 
     for vtp_path in vtp_files:
         if logger:
@@ -178,7 +223,17 @@ def process_vtp_data(data_dir, num_samples=2, write_vtp=False, logger=None):
         output_dir = f"./output_{os.path.splitext(os.path.basename(vtp_path))[0]}"
         os.makedirs(output_dir, exist_ok=True)
 
-        pos_raw, mesh_connectivity = load_vtp_file(vtp_path)
+        # Get global features for this run
+        run_id = os.path.splitext(os.path.basename(vtp_path))[0]
+        if global_features_filepath is not None:
+            global_features = get_global_features_for_run(
+                all_global_features,
+                run_id,
+            )
+        else:
+            global_features = {}
+
+        pos_raw, mesh_connectivity, point_data_dict = load_vtp_file(vtp_path)
 
         # Use unfiltered data
         filtered_pos_raw = pos_raw
@@ -200,13 +255,21 @@ def process_vtp_data(data_dir, num_samples=2, write_vtp=False, logger=None):
             write_vtp=write_vtp,
             logger=logger,
         )
-        point_data_all.append({"coords": mesh_pos_all})
+
+        # Create record with coords and all other point data fields
+        record = {
+            "coords": mesh_pos_all,
+            "point_data": point_data_dict,
+        }
+
+        point_data_all.append(record)
+        global_features_all.append(global_features)
 
         processed_runs += 1
         if processed_runs >= num_samples:
             break
 
-    return srcs, dsts, point_data_all
+    return srcs, dsts, point_data_all, global_features_all
 
 
 class Reader:
@@ -222,13 +285,15 @@ class Reader:
         data_dir: str,
         num_samples: int,
         split: str | None = None,
+        global_features_filepath: str | None = None,
         logger=None,
         **kwargs,
     ):
-        write_vtp = False if split == "train" else True
+        write_vtp = False if split in ("train", "validation") else True
         return process_vtp_data(
             data_dir=data_dir,
             num_samples=num_samples,
             write_vtp=write_vtp,
+            global_features_filepath=global_features_filepath,
             logger=logger,
         )
